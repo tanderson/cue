@@ -80,6 +80,29 @@ func newStr(s string) adt.Value {
 	return &adt.String{Str: s}
 }
 
+var cachedModuleRootStr string
+
+func cachedModuleRoot(filename string) string {
+	if cachedModuleRootStr != "" {
+		return cachedModuleRootStr
+	}
+
+	var dir string
+	for dir = path.Dir(filename); dir != "."; dir = path.Dir(dir) {
+		if _, err := _os.Stat(path.Join(dir, "cue.mod")); err == nil {
+			break
+		}
+		if dir == "/" {
+			dir = "."
+			break
+		}
+	}
+
+	cachedModuleRootStr = dir
+
+	return dir
+}
+
 var p = &pkg.Package{
 	CUE: `{
 		Unix:    "unix"
@@ -206,22 +229,22 @@ var p = &pkg.Package{
 			}
 		},
 	}, {
-		Name: "FromModuleRoot",
+		Name: "ModuleRootAbs",
 		Params: []pkg.Param{},
 		Result: adt.StringKind,
 		Func: func(c *pkg.CallCtxt) {
-			file := c.Pos().Filename()
 			if c.Do() {
-				var dir string
-				for dir = path.Dir(file); dir != "."; dir = path.Dir(dir) {
-					if _, err := _os.Stat(path.Join(dir, "cue.mod")); err == nil {
-						break
-					}
-					if dir == "/" {
-						c.Ret = newStr(".")
-						return
-					}
-				}
+				c.Ret = newStr(cachedModuleRoot(c.Pos().Filename()))
+			}
+		},
+	}, {
+		Name: "ModuleRootRel",
+		Params: []pkg.Param{},
+		Result: adt.StringKind,
+		Func: func(c *pkg.CallCtxt) {
+			if c.Do() {
+				file := c.Pos().Filename()
+				dir := cachedModuleRoot(file)
 				c.Ret = newStr("." + strings.TrimPrefix(path.Dir(file), dir))
 			}
 		},
