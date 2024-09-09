@@ -15,6 +15,12 @@
 package path
 
 import (
+	"path"
+	_os "os"
+	"strings"
+
+  //"github.com/davecgh/go-spew/spew"
+
 	"cuelang.org/go/internal/core/adt"
 	"cuelang.org/go/internal/pkg"
 )
@@ -197,6 +203,26 @@ var p = &pkg.Package{
 			dir, sub, os := c.String(0), c.String(1), c.String(2)
 			if c.Do() {
 				c.Ret = Resolve(dir, sub, OS(os))
+			}
+		},
+	}, {
+		Name: "FromModuleRoot",
+		Params: []pkg.Param{},
+		Result: adt.StringKind,
+		Func: func(c *pkg.CallCtxt) {
+			file := c.Pos().Filename()
+			if c.Do() {
+				var dir string
+				for dir = path.Dir(file); dir != "."; dir = path.Dir(dir) {
+					if _, err := _os.Stat(path.Join(dir, "cue.mod")); err == nil {
+						break
+					}
+					if dir == "/" {
+						c.Ret = newStr(".")
+						return
+					}
+				}
+				c.Ret = newStr("." + strings.TrimPrefix(path.Dir(file), dir))
 			}
 		},
 	}, {
